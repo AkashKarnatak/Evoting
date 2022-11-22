@@ -20,7 +20,11 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@openzeppelin/contracts": "^4.8.0",
+    "@types/bn.js": "^5.1.1",
+    "@types/elliptic": "^6.4.14",
+    "bn.js": "^5.2.1",
     "dotenv": "^16.0.3",
+    "elliptic": "github:AkashKarnatak/elliptic",
     "hardhat": "^2.12.2"
   }
 }
