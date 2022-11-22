@@ -10,6 +10,8 @@ error InsufficientRandomBit();
 error VoterNotRegistered();
 error VoteSignatureMisMatch();
 error VoteAlreadyCasted();
+error AlreadyRegistered();
+error AlreadyVoted();
 error InvalidVote();
 
 contract Evoting is Ownable {
@@ -27,6 +29,7 @@ contract Evoting is Ownable {
   string[] public candidates;
   ALT_BN128.Point public organiserPubKey;
   mapping (address => bool) public registeredVoters;
+  mapping (address => bool) public hasVoted;
   mapping (uint256 => bool) public castedVotes;
   mapping (uint256 => uint256) public voteCount;
 
@@ -70,9 +73,18 @@ contract Evoting is Ownable {
     _;
   }
 
+  modifier notYetVoted() {
+    if (hasVoted[msg.sender]) {
+      revert AlreadyVoted();
+    }
+    _;
+  }
+
   // voters can register themselves
-  function registerVoter() public {
-    // TODO: handle alreadly registered voter
+  function registerVoter() public notYetVoted {
+    if (registeredVoters[msg.sender]) {
+      revert AlreadyRegistered();
+    }
     registeredVoters[msg.sender] = true;
   }
 
@@ -85,7 +97,7 @@ contract Evoting is Ownable {
 
   // request a point decided by the organiser
   // to calculate blind signature
-  function requestPoint() public onlyRegisteredVoter {
+  function requestPoint() public onlyRegisteredVoter notYetVoted {
     emit RequestPoint(msg.sender);
   }
 
@@ -102,7 +114,7 @@ contract Evoting is Ownable {
   // organiser on the blinded vote
   function requestSignProof(
     uint256 blindedVote
-  ) public onlyRegisteredVoter {
+  ) public onlyRegisteredVoter notYetVoted {
     emit RequestSignProof(msg.sender, blindedVote);
   }
 
@@ -112,6 +124,7 @@ contract Evoting is Ownable {
     address to,
     uint256 s_
   ) public onlyOwner {
+    hasVoted[to] = true;
     emit ReturnSignProof(to, s_);
   }
 
@@ -137,7 +150,7 @@ contract Evoting is Ownable {
   function castVote(
     uint256 vote,
     Signature calldata signedHashedVote
-  ) public onlyRegisteredVoter {
+  ) public notYetVoted {
     if(!verifySignature(
       keccak256(abi.encodePacked(vote)),
       signedHashedVote
@@ -156,4 +169,6 @@ contract Evoting is Ownable {
     castedVotes[vote] = true;
     ++voteCount[choice];
   }
+
+  fallback() external {}
 }

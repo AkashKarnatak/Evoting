@@ -1,6 +1,6 @@
 import { ethers, network } from "hardhat";
 import BN from "bn.js"
-import { ec as EC } from "elliptic"
+import { ec as EC, curve } from "elliptic"
 import params from "./parameters"
 
 async function main() {
@@ -29,6 +29,28 @@ async function main() {
   )
   await evoting.deployed()
   console.log(`Contract deployed at ${evoting.address}`)
+  console.log('Listening for requests...')
+  // set up listeners for organiser
+  let k: BN, R_: curve.base.BasePoint
+  evoting.on("RequestPoint", async (from) => {
+    const keyPair = ec.genKeyPair()
+    k = keyPair.getPrivate()
+    R_ = keyPair.getPublic()
+    await evoting.returnPoint(
+      from,
+      {
+        x: R_.getX().toArray(),
+        y: R_.getY().toArray()
+      }
+    )
+  })
+  evoting.on("RequestSignProof", async (from, m_) => {
+    const s_ = organiserPrivKey.mul(new BN(m_.toString())).add(k).mod(ec.n!)
+    await evoting.returnSignProof(
+      from,
+      s_.toArray()
+    )
+  })
 }
 
 main().catch((error) => {
