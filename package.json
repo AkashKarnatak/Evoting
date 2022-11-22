@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "buildFrontend": "browserify ./frontend/src/index.js --standalone bundle -o ./frontend/static/bundle.js",
+    "watchFrontend": "watchify ./frontend/src/index.js --standalone bundle -o ./frontend/static/bundle.js -v"
   },
   "repository": {
     "type": "git",
@@ -23,8 +24,11 @@
     "@types/bn.js": "^5.1.1",
     "@types/elliptic": "^6.4.14",
     "bn.js": "^5.2.1",
+    "browserify": "^17.0.0",
     "dotenv": "^16.0.3",
     "elliptic": "github:AkashKarnatak/elliptic",
-    "hardhat": "^2.12.2"
+    "ethers": "^5.7.2",
+    "hardhat": "^2.12.2",
+    "watchify": "^4.0.0"
   }
 }
