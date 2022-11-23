@@ -45,16 +45,26 @@ const collectSignature = async (evoting, voteHash, address) => {
       const s = (new BN(s_.toString())).mul(a).add(b).mod(ec.n)
       const signature = {
         R: {
-          x: R.getX().toArray(),
-          y: R.getY().toArray()
+          x: BigInt(R.getX().toString()),
+          y: BigInt(R.getY().toString())
         },
-        s: s.toArray()
+        s: BigInt(s.toString())
       }
       resolve(signature)
     })
     console.log('Requesting point...')
     await evoting.requestPoint()
   })
+}
+
+function verifySignature(voteHash, signature, organiserPubKey) {
+  const R = ec.keyFromPublic({
+    x: signature.R.x.toString(16),
+    y: signature.R.y.toString(16),
+  }, 'hex').getPublic()
+  const lhs = ec.g.mul(new BN(signature.s.toString()))
+  const rhs = R.add(organiserPubKey.mul(R.getX().mul(voteHash)))
+  return (lhs.getX().toString() == rhs.getX().toString()) && (lhs.getY().toString() == rhs.getY().toString())
 }
 
 const listenForTransaction = (transactionResponse, provider) => {
@@ -143,7 +153,12 @@ const castVote = async () => {
 
   const signature = await collectSignature(evoting, voteHash, await signer.getAddress())
   console.log('Verifying received signature...')
-  const isSigValid = await evoting.verifySignature(voteHash.toArray(), signature)
+  const pubKey = await evoting.organiserPubKey()
+  const organiserPubKey = ec.keyFromPublic({
+    x: pubKey.x.toHexString().slice(2),
+    y: pubKey.y.toHexString().slice(2),
+  }, 'hex').getPublic()
+  const isSigValid = verifySignature(voteHash, signature, organiserPubKey)
   if (!isSigValid) {
     return alert('Invalid signature received')
   }
