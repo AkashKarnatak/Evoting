@@ -7,9 +7,8 @@ import { expect } from "chai"
 const ec = new EC('alt_bn128')
 
 describe("Evoting", () => {
-  let evoting: Evoting, organiserPrivKey: BN
+  let evoting: Evoting, organiserPrivKey: BN, organiserPubKey: curve.base.BasePoint
   beforeEach(async () => {
-    const ec = new EC('alt_bn128')
     const noOfCandidates = 2
     const noOfVoteBits = Math.floor(Math.log2(noOfCandidates)) + 1
     const noOfZeroBits = 10
@@ -17,7 +16,7 @@ describe("Evoting", () => {
     const candidates = ["Abhishek", "Akash"]
     const accounts = network.config.accounts as string[]
     organiserPrivKey = new BN(accounts[0].slice(2), 16)
-    const organiserPubKey = ec.g.mul(organiserPrivKey)
+    organiserPubKey = ec.g.mul(organiserPrivKey)
 
     const evotingFactory = await ethers.getContractFactory('Evoting')
     evoting = await evotingFactory.deploy(
@@ -110,15 +109,25 @@ describe("Evoting", () => {
         const s = (new BN(s_.toString())).mul(a).add(b).mod(ec.n!)
         const signature = {
           R: {
-            x: R.getX().toArray(),
-            y: R.getY().toArray()
+            x: BigInt(R.getX().toString()),
+            y: BigInt(R.getY().toString())
           },
-          s: s.toArray()
+          s: BigInt(s.toString())
         }
         resolve(signature)
       })
       await evotingClient.requestPoint()
     })
+  }
+
+  function verifySignature(voteHash: BN, signature: Evoting.SignatureStruct) {
+    const R = ec.keyFromPublic({
+      x: signature.R.x.toString(16),
+      y: signature.R.y.toString(16),
+    }, 'hex').getPublic()
+    const lhs: curve.base.BasePoint = ec.g.mul(new BN(signature.s.toString()))
+    const rhs: curve.base.BasePoint = R.add(organiserPubKey.mul(R.getX().mul(voteHash)))
+    return (lhs.getX().toString() == rhs.getX().toString()) && (lhs.getY().toString() == rhs.getY().toString())
   }
 
   describe("Pre-voting phase", () => {
@@ -163,7 +172,7 @@ describe("Evoting", () => {
       const vote = (choice << BigInt(noOfZeroBits + noOfRandomBits)) + randomNumber(noOfRandomBits)
       const voteHash = new BN(ethers.utils.solidityKeccak256(['uint256'], [vote]).slice(2), 16)
       const signature = await collectSignature(evotingClient, voteHash, wallet.address)
-      const isSigValid = await evotingClient.verifySignature(voteHash.toArray(), signature)
+      const isSigValid = verifySignature(voteHash, signature)
       expect(isSigValid).to.equal(true)
     })
   })
