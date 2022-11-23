@@ -29,13 +29,17 @@ async function main() {
   )
   await evoting.deployed()
   console.log(`Contract deployed at ${evoting.address}`)
+  
+  // store each requester's params in a map
+  const requesterParams = new Map<string, { k: BN, R_: curve.base.BasePoint }>()
+
   console.log('Listening for requests...')
   // set up listeners for organiser
-  let k: BN, R_: curve.base.BasePoint
-  evoting.on("RequestPoint", async (from) => {
+  evoting.on("RequestPoint", async (from: string) => {
     const keyPair = ec.genKeyPair()
-    k = keyPair.getPrivate()
-    R_ = keyPair.getPublic()
+    const k = keyPair.getPrivate()
+    const R_ = keyPair.getPublic()
+    requesterParams.set(from, {k, R_})
     await evoting.returnPoint(
       from,
       {
@@ -45,6 +49,7 @@ async function main() {
     )
   })
   evoting.on("RequestSignProof", async (from, m_) => {
+    const {k, R_: _} = requesterParams.get(from)!
     const s_ = organiserPrivKey.mul(new BN(m_.toString())).add(k).mod(ec.n!)
     await evoting.returnSignProof(
       from,
